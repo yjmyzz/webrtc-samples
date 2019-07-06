@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>WebRtc 1对1 视频聊天室</title>
+    <link rel="stylesheet" type="text/css" href="css/style.css" />
+    <script type="text/javascript" src="js/socket.io.js"></script>
+    <script type="text/javascript" src="js/adapter.js"></script>
+</head>
+
+<body>
+    <table align="center">
+        <tr>
+            <td colspan="2">输入房间号：<input type="text" id="roomName" placeholder="请填写Room名称" />
+                <button id="btnJoin">加入房间</button>
+                <button id="btnLeave">离开房间</button>
+                <button id="btnOpenCamera">打开摄像头</button>
+                <button id="btnCloseCamera">关闭摄像头</button>
+            </td>
+        </tr>
+        <tr>
+            <td>我的视频：<select id="localFilter">
+                    <option value="">
+                        无
+                    </option>
+                    <option value="blur">
+                        blur(模糊)
+                    </option>
+                    <option value="grayscale">
+                        grayscale(灰度)
+                    </option>
+                    <option value="contrast">
+                        contrast(对比度)
+                    </option>
+                    <option value="invert">
+                        invert(反相)
+                    </option>
+                    <option value="sepia">
+                        sepia(褐色滤镜)
+                    </option>
+                    <option value="custom">
+                        custom(自定义)
+                    </option>
+                </select></td>
+            <td>对方视频：<select id="remoteFilter">
+                    <option value="">
+                        无
+                    </option>
+                    <option value="blur">
+                        blur(模糊)
+                    </option>
+                    <option value="grayscale">
+                        grayscale(灰度)
+                    </option>
+                    <option value="contrast">
+                        contrast(对比度)
+                    </option>
+                    <option value="invert">
+                        invert(反相)
+                    </option>
+                    <option value="sepia">
+                        sepia(褐色滤镜)
+                    </option>
+                    <option value="custom">
+                        custom(自定义)
+                    </option>
+                </select></td>
+        </tr>
+        <tr>
+            <td> <video id="localVideo" controls autoplay></video></td>
+            <td> <video id="remoteVideo" controls autoplay></video></td>
+        </tr>
+        <tr>
+            <td>
+                <button id="btnLocalSnap">截图</button>
+                <button id="btnLocalRecord">录制</button>
+                <button id="btnLocalStopRecord">停止录制</button>
+                <button id="btnLocalPlay">播放</button>
+                <button id="btnLocalDownload">下载</button>
+            </td>
+            <td>
+                <button id="btnRemoteSnap">截图</button>
+                <button id="btnRemoteRecord">录制</button>
+                <button id="btnRemoteStopRecord">停止录制</button>
+                <button id="btnRemotePlay">播放</button>
+                <button id="btnRemoteDownload">下载</button>
+            </td>
+        </tr>
+        <tr>
+            <td id="tdLocalBox"></td>
+            <td id="tdRemoteBox"></td>
+        </tr>
+    </table>
+
+    <script type="text/javascript">
+        function startCamera() {
+            if (localStream == null) {
+                navigator.mediaDevices
+                    .getUserMedia({
+                        audio: false,
+                        video: {
+                            width: 300
+                        }
+                    })
+                    .then(stream => gotStream(stream))
+                    .catch(e => alert('getUserMedia() error: ${e.name}'));
+            }
+        }
+    </script>
+
+    <script src="js/client.js" type="text/javascript"></script>
+</body>
+
+</html>
