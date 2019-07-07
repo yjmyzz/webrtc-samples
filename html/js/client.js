@@ -44,9 +44,16 @@ window.remoteMediaRecorder = null;
 
 var config = {
     'iceServers': [{
-      'urls': 'turn:52.80.64.4:3478',
-      'credential': "yjmyzz",
-      'username': "yjmyzz.cnblogs.com"
+        'urls': 'stun:127.0.0.1:32769',
+    },
+    {
+        'urls': 'stun:stun.xten.com:3478',
+    },
+    {
+        'urls': 'stun:stun.voxgratia.org:3478',
+    },
+    {
+        'urls': 'stun:stun.ideasip.com:3478',
     }]
 };
 
@@ -73,7 +80,7 @@ function exit() {
 }
 
 //创建webrtc peerconnection
-function createPeerConn(socketId) {
+function createOrGetExistPeerConn(socketId) {
     var pc = rtcConnects[socketId];
     if (typeof (pc) == 'undefined') {
         pc = new RTCPeerConnection(config);
@@ -97,14 +104,15 @@ function removeRtcConnect(socketId) {
 
 //绑定本地摄像头流至video展示
 function gotStream(stream) {
-    console.log('Received local stream');
+    console.log((new Date()).getTime() + ' received local stream');
     localVideo.srcObject = stream;
     window.localStream = stream;
 }
 
 //获取icecandidate信息回调
 function onIceCandidate(pc, id, event) {
-    console.log('onIceCandidate to ' + id + ' candidate ' + event);
+    // console.log((new Date()).getTime() + 'onIceCandidate: to ' + id + ' candidate ' + event);
+    console.log((new Date()).getTime() + ' onIceCandidate: to ' + id + ' ,from ' + socketId);
     if (event.candidate != null) {
         var message = {};
         message.from = socketId;
@@ -121,14 +129,14 @@ function onIceCandidate(pc, id, event) {
 
 // //获取对端stream数据回调--onaddstream模式
 // function onAddStream(pc, id, event) {
-//     console.log('onAddStream from ' + id);
+//     console.log((new Date()).getTime() + 'onAddStream from ' + id);
 //     remoteVideo.srcObject = event.stream;
 //     window.remoteStream = event.stream;
 // }
 
 //获取对端stream数据回调--onTrack模式
 function onTrack(pc, id, event) {
-    console.log('onTrack from ' + id);
+    console.log((new Date()).getTime() + ' onTrack from ' + id);
     remoteVideo.srcObject = event.streams[0];
     window.remoteStream = event.streams[0];
 
@@ -136,10 +144,9 @@ function onTrack(pc, id, event) {
 
 //onRemoveStream回调
 function onRemoveStream(pc, id, event) {
-    console.log('onRemoveStream from ' + id);
+    console.log((new Date()).getTime() + ' onRemoveStream from ' + id);
     //peer关闭
-    getOrCreateRtcConnect(id).close;
-    createPeerConn(id).close;
+    createOrGetExistPeerConn(id).close;
     //删除peer对象
     delete rtcConnects[id];
     //移除video
@@ -148,7 +155,8 @@ function onRemoveStream(pc, id, event) {
 
 //offer创建成功回调
 function onCreateOfferSuccess(pc, id, offer) {
-    console.log('createOffer: success ' + ' id:' + id + ' offer ' + JSON.stringify(offer));
+    // console.log((new Date()).getTime() + 'createOffer: success ' + ' id:' + id + ' offer ' + JSON.stringify(offer));
+    console.log((new Date()).getTime() + ' createOffer: success ' + ' from:' + socketId + ' to:' + id);
     pc.setLocalDescription(offer);
     var message = {};
     message.from = socketId;
@@ -160,12 +168,13 @@ function onCreateOfferSuccess(pc, id, offer) {
 
 //offer创建失败回调
 function onCreateOfferError(pc, id, error) {
-    console.log('createOffer: fail error ' + error);
+    console.log((new Date()).getTime() + ' createOffer: fail error ' + error);
 }
 
 //answer创建成功回调
 function onCreateAnswerSuccess(pc, id, offer) {
-    console.log('createAnswer: success ' + ' id:' + id + ' offer ' + JSON.stringify(offer));
+    // console.log((new Date()).getTime() + 'createAnswer: success ' + ' id:' + id + ' offer ' + JSON.stringify(offer));
+    console.log((new Date()).getTime() + ' createAnswer: success ' + ' from:' + socketId + ' to:' + id);
     pc.setLocalDescription(offer);
     var message = {};
     message.from = socketId;
@@ -177,32 +186,33 @@ function onCreateAnswerSuccess(pc, id, offer) {
 
 //answer创建失败回调
 function onCreateAnswerError(pc, id, error) {
-    console.log('createAnswer: fail error ' + error);
+    console.log((new Date()).getTime() + ' createAnswer: fail error ' + error);
 }
 
 //加入房间成功的回调
-socket.on('created', async function (data) {
-    console.log('created: ' + JSON.stringify(data));
+socket.on('joined', async function (data) {
+    console.log((new Date()).getTime() + ' on joined: ' + JSON.stringify(data));
     socketId = data.id;
     roomId = data.room;
     for (let i = 0; i < data.peers.length; i++) {
         var otherSocketId = data.peers[i].id;
-        var pc = createPeerConn(otherSocketId);
+        var pc = createOrGetExistPeerConn(otherSocketId);
         const offer = await pc.createOffer(offerOptions);
         onCreateOfferSuccess(pc, otherSocketId, offer);
     }
 })
 
 //joined [id,room]
-socket.on('joined', function (data) {
-    console.log('joined: ' + JSON.stringify(data));
-    createPeerConn(data.from);
+socket.on('other_joined', function (data) {
+    console.log((new Date()).getTime() + ' on other_joined: ' + JSON.stringify(data));
+    createOrGetExistPeerConn(data.from);
 })
 
 //offer [from,to,room,sdp]
 socket.on('offer', function (data) {
-    console.log('offer: ' + JSON.stringify(data));
-    var pc = createPeerConn(data.from);
+    // console.log((new Date()).getTime() + 'offer: ' + JSON.stringify(data));
+    console.log((new Date()).getTime() + ' on offer, from: ' + data.from);
+    var pc = createOrGetExistPeerConn(data.from);
     var rtcDescription = { type: 'offer', sdp: data.sdp };
     pc.setRemoteDescription(new RTCSessionDescription(rtcDescription));
     pc.createAnswer(offerOptions)
@@ -211,17 +221,19 @@ socket.on('offer', function (data) {
 
 //answer回调
 socket.on('answer', function (data) {
-    console.log('answer: ' + JSON.stringify(data));
-    var pc = createPeerConn(data.from);
+    // console.log((new Date()).getTime() + 'answer: ' + JSON.stringify(data));
+    console.log((new Date()).getTime() + ' on answer, from: ' + data.from);
+    var pc = createOrGetExistPeerConn(data.from);
     var rtcDescription = { type: 'answer', sdp: data.sdp };
     pc.setRemoteDescription(new RTCSessionDescription(rtcDescription));
 })
 
 //收集网络链路的候选者回调
 socket.on('candidate', function (data) {
-    console.log('candidate: ' + JSON.stringify(data));
+    // console.log((new Date()).getTime() + 'candidate: ' + JSON.stringify(data));
+    console.log((new Date()).getTime() + ' on candidate, from ' + data.from)
     var iceData = data.candidate;
-    var pc = createPeerConn(data.from);
+    var pc = createOrGetExistPeerConn(data.from);
     var rtcIceCandidate = new RTCIceCandidate({
         candidate: iceData.sdp,
         sdpMid: iceData.sdpMid,
@@ -230,16 +242,21 @@ socket.on('candidate', function (data) {
     pc.addIceCandidate(rtcIceCandidate);
 })
 
+socket.on("full", function (data) {
+    console.log((new Date()).getTime() + ' on full: ' + JSON.stringify(data));
+    alert('房间已满！');
+})
+
 //离开房间的回调
 socket.on('exit', function (data) {
-    console.log('exit: ' + JSON.stringify(data));
+    console.log((new Date()).getTime() + ' on exit: ' + JSON.stringify(data));
     //判断是否为当前连接 
     var pc = rtcConnects[data.from];
     if (typeof (pc) == 'undefined') {
         return;
     } else {
         //peer关闭
-        createPeerConn(data.from).close;
+        createOrGetExistPeerConn(data.from).close;
         //删除peer对象
         delete rtcConnects[data.from];
         //移除video
@@ -360,7 +377,7 @@ window.addEventListener("load", function () {
 
     if (!navigator.mediaDevices ||
         !navigator.mediaDevices.getUserMedia) {
-        console.log('webrtc is not supported!');
+        console.log((new Date()).getTime() + ' webrtc is not supported!');
         alert("webrtc is not supported!");
         return;
     }
@@ -369,9 +386,9 @@ window.addEventListener("load", function () {
     btnJoin.onclick = () => {
         var roomName = $('roomName').value;
         if (roomName) {
-            socket.emit('createAndJoinRoom', { room: roomName })
+            socket.emit('apply_join', { room: roomName })
         } else {
-            console.log('请输入房间名称!');
+            console.log((new Date()).getTime() + ' 请输入房间名称!');
             alert("请输入房间名称!");
         }
     }
