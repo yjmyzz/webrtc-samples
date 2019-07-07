@@ -1,3 +1,23 @@
+*{
+    font-size:14px
+}
+
+div.left{
+    text-align: left;
+    background: #efefef;
+    line-height: 35px;
+    padding:0 5px 0 5px;
+    color: red;
+}
+
+div.right{
+    text-align: right;
+    background: #fff;
+    line-height: 35px;
+    padding:0 5px 0 5px;
+    color: blue;
+}
+
 td {
     margin: 10px;
     padding:10px;

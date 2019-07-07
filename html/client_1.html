@@ -90,6 +90,24 @@
             <td id="tdLocalBox"></td>
             <td id="tdRemoteBox"></td>
         </tr>
+        <tr>
+            <td colspan="2">
+                聊天内容：<input type="text" id="txtMsg" placeholder="请输入聊天内容" size="50" /> <button id="btnSend">发 送</button>
+                <button id="btnClearMsg">清空聊天记录</button>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <div style="overflow-y: scroll;height:200px;min-height: 10px" id="divMsg">
+
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                发送文件：<input type="file" id="file" /> <button id="btnSendFile">发送文件</button>
+            </td>
+        </tr>
     </table>
 
     <script type="text/javascript">
@@ -103,7 +121,7 @@
                         }
                     })
                     .then(stream => gotStream(stream))
-                    .catch(e => alert('getUserMedia() error: ${e.name}'));
+                    .catch(e => alert('getUserMedia() error:' + e.name));
             }
         }
     </script>

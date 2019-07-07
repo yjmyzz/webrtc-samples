@@ -11,6 +11,8 @@ var socket = io('wss://127.0.0.1:9443');
 var socketId;
 var roomId;
 var rtcConnects = {};
+var dc = null;
+var dcIsOpen = false;
 
 var localVideo = $('localVideo');
 var remoteVideo = $('remoteVideo');
@@ -18,6 +20,8 @@ var localFilter = $('localFilter');
 var remoteFilter = $('remoteFilter');
 var tdLocalBox = $('tdLocalBox');
 var tdRemoteBox = $('tdRemoteBox');
+var txtMsg = $("txtMsg");
+var divMsg = $("divMsg");
 var btnJoin = $('btnJoin');
 var btnLeave = $('btnLeave');
 var btnOpenCamera = $('btnOpenCamera');
@@ -32,6 +36,9 @@ var btnRemoteRecord = $('btnRemoteRecord');
 var btnRemoteStopRecord = $('btnRemoteStopRecord');
 var btnRemotePlay = $('btnRemotePlay');
 var btnRemoteDownload = $('btnRemoteDownload');
+var btnSend = $("btnSend");
+var btnClearMsg = $("btnClearMsg");
+var btnSendFile = $("btnSendFile");
 
 window.localStream = null;
 window.remoteStream = null;
@@ -42,6 +49,7 @@ window.localMediaRecorder = null;
 window.remoteBuffer = null;
 window.remoteMediaRecorder = null;
 
+//这里根据需求，改成真正的stun/turn服务器地址
 var config = {
     'iceServers': [{
         'urls': 'stun:127.0.0.1:32769',
@@ -86,6 +94,27 @@ function createOrGetExistPeerConn(socketId) {
         pc = new RTCPeerConnection(config);
         pc.onicecandidate = e => onIceCandidate(pc, socketId, e);
         pc.ontrack = e => onTrack(pc, socketId, e);
+        //创建datachannel(注：这个dc无法接收消息，必须在pc.ondatachannel中拿到的dc才是对方创建的datachannel)
+        dc = pc.createDataChannel("chat");
+        console.log((new Date()).getTime() + ' createDataChannel , from:' + socketId);
+        pc.ondatachannel = function (ev) {
+            console.log((new Date()).getTime() + ' ondatachannel , event:' + JSON.stringify(event));
+            dc = ev.channel;
+        };
+
+        dc.onopen = function (event) {
+            console.log((new Date()).getTime() + ' datachannel is open, event: ' + JSON.stringify(event));
+            dcIsOpen = true;
+        }
+        dc.onmessage = function (event) {
+            console.log((new Date()).getTime() + ' onmessage, event.data:' + event.data);
+            var div = document.createElement("div");
+            div.className = "right";
+            var eventData = JSON.parse(event.data);
+            div.innerText = "对方说：" + eventData.message;
+            divMsg.appendChild(div);
+        }
+
         if (window.localStream != null) {
             window.localStream.getTracks().forEach(function (track) {
                 pc.addTrack(track, window.localStream);
@@ -390,6 +419,8 @@ window.addEventListener("load", function () {
         } else {
             console.log((new Date()).getTime() + ' 请输入房间名称!');
             alert("请输入房间名称!");
+            $('roomName').focus();
+
         }
     }
 
@@ -449,5 +480,31 @@ window.addEventListener("load", function () {
 
     //对方(录制的)视频下载
     btnRemoteDownload.onclick = () => { downloadVideo(REMOTE); }
+
+    // 清空聊天内容
+    btnClearMsg.onclick = () => {
+        divMsg.innerHTML = "";
+    }
+
+    //发送聊天内容
+    btnSend.onclick = () => {
+        if (txtMsg.value.length <= 0) {
+            alert('请输入聊天内容！');
+            txtMsg.focus();
+            return;
+        }
+        if (!dc || !dcIsOpen) {
+            alert('datachannel not ready!');
+            return;
+        }
+        var message = { "message": txtMsg.value, "from": socketId };
+        dc.send(JSON.stringify(message));
+        console.log("send message:" + txtMsg.value + ", from:" + socketId);
+        var div = document.createElement("div");
+        div.className = "left";
+        div.innerText = "我说：" + txtMsg.value;
+        divMsg.appendChild(div);
+        txtMsg.value = "";
+    }
 
 }, false);
