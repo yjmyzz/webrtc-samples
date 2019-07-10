@@ -39,6 +39,8 @@ var btnRemoteDownload = $('btnRemoteDownload');
 var btnSend = $("btnSend");
 var btnClearMsg = $("btnClearMsg");
 var btnSendFile = $("btnSendFile");
+var inputFile = $("inputFile");
+var chunkLength = 10000;
 
 window.localStream = null;
 window.remoteStream = null;
@@ -48,6 +50,9 @@ window.localMediaRecorder = null;
 
 window.remoteBuffer = null;
 window.remoteMediaRecorder = null;
+var arrayToStoreChunks = [];
+var fileTotalBlocks = 0;
+var fileCurrentBlockIndex = 0;
 
 //这里根据需求，改成真正的stun/turn服务器地址
 var config = {
@@ -111,10 +116,20 @@ function createOrGetExistPeerConn(socketId) {
             var div = document.createElement("div");
             div.className = "right";
             var eventData = JSON.parse(event.data);
-            div.innerText = "对方说：" + eventData.message;
-            divMsg.appendChild(div);
+            if (eventData.type != undefined && eventData.type === "file") {
+                //传递文件
+                arrayToStoreChunks.push(eventData.message);
+                if (eventData.last) {
+                    saveToDisk(arrayToStoreChunks.join(''), eventData.fileName, eventData.mimeType);
+                    arrayToStoreChunks = [];
+                }
+            }
+            else {
+                //纯文字聊天
+                div.innerText = "对方说：" + eventData.message;
+                divMsg.appendChild(div);
+            }
         }
-
         if (window.localStream != null) {
             window.localStream.getTracks().forEach(function (track) {
                 pc.addTrack(track, window.localStream);
@@ -124,6 +139,56 @@ function createOrGetExistPeerConn(socketId) {
         rtcConnects[socketId] = pc;
     }
     return pc;
+}
+
+
+function onReadAsDataURL(event, fileContent, fileName, mimeType) {
+    var data = {};
+    data.type = "file";
+    // 首次调用
+    if (event) {
+        fileContent = event.target.result;
+        fileTotalBlocks = parseInt(fileContent.length / chunkLength);
+        fileCurrentBlockIndex = 0;
+    }
+
+    if (fileContent.length > chunkLength) {
+        data.message = fileContent.slice(0, chunkLength);
+    } else {
+        data.message = fileContent;
+        data.last = true;
+        data.fileName = fileName;
+        data.mimeType = mimeType;
+    }
+
+    if (!dc || !dcIsOpen) {
+        alert('datachannel not ready!');
+        return;
+    }
+
+    var jsonData = JSON.stringify(data);
+    dc.send(jsonData);
+
+    console.log("send file data=> " + jsonData);
+
+    var remainingDataURL = fileContent.slice(data.message.length);
+    if (remainingDataURL.length) {
+        setTimeout(function () {
+            onReadAsDataURL(null, remainingDataURL, fileName, mimeType);
+            fileCurrentBlockIndex += 1;
+            // 显示进度
+            $('lblProcess').innerText = fileCurrentBlockIndex + "/" + fileTotalBlocks;
+        }, 10)
+    }
+}
+
+//保存接收到的文件到本机磁盘
+function saveToDisk(fileUrl, fileName, mimeType) {   
+    var a = document.createElement('a');
+    a.href = fileUrl;
+    a.style.display = 'none';
+    a.download = fileName;
+    a.click();
 }
 
 //移除webRtc连接
@@ -155,13 +220,6 @@ function onIceCandidate(pc, id, event) {
         socket.emit('candidate', message);
     }
 }
-
-// //获取对端stream数据回调--onaddstream模式
-// function onAddStream(pc, id, event) {
-//     console.log((new Date()).getTime() + 'onAddStream from ' + id);
-//     remoteVideo.srcObject = event.stream;
-//     window.remoteStream = event.stream;
-// }
 
 //获取对端stream数据回调--onTrack模式
 function onTrack(pc, id, event) {
@@ -402,6 +460,8 @@ function downloadVideo(flag) {
     a.click();
 }
 
+
+
 window.addEventListener("load", function () {
 
     if (!navigator.mediaDevices ||
@@ -505,6 +565,16 @@ window.addEventListener("load", function () {
         div.innerText = "我说：" + txtMsg.value;
         divMsg.appendChild(div);
         txtMsg.value = "";
+    }
+
+    //发送文件内容
+    btnSendFile.onclick = () => {
+        var file = inputFile.files[0];
+        var reader = new window.FileReader();
+        reader.readAsDataURL(file);       
+        reader.onload = function (event) {
+            onReadAsDataURL(event, null, file.name, file.type);
+        }
     }
 
 }, false);
